@@ -6,9 +6,9 @@ import ru.job4j.articles.model.Article;
 import ru.job4j.articles.model.Word;
 import ru.job4j.articles.service.generator.ArticleGenerator;
 import ru.job4j.articles.store.Store;
-
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.List;
 
 public class SimpleArticleService implements ArticleService {
 
@@ -24,10 +24,17 @@ public class SimpleArticleService implements ArticleService {
     public void generate(Store<Word> wordStore, int count, Store<Article> articleStore) {
         LOGGER.info("Геренация статей в количестве {}", count);
         var words = wordStore.findAll();
-        var articles = IntStream.iterate(0, i -> i < count, i -> i + 1)
-                .peek(i -> LOGGER.info("Сгенерирована статья № {}", i))
-                .mapToObj((x) -> articleGenerator.generate(words))
-                .collect(Collectors.toList());
-        articles.forEach(articleStore::save);
+        List<WeakReference<Article>> articles = new ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            LOGGER.info("Сгенерирована статья № {}", i);
+            Article article = articleGenerator.generate(words);
+            articles.add(new WeakReference<>(article));
+        }
+        for (WeakReference<Article> weakArticle : articles) {
+            Article article = weakArticle.get();
+            if (article != null) {
+                articleStore.save(article);
+            }
+        }
     }
 }
